@@ -35,6 +35,17 @@ app.get("/", (req, res) => {
     res.sendFile(__dirname + "/views/index.html");
 });
 
+app.get("/api/users", (req, res) => {
+    User.find(),
+        (err, data) => {
+            if (!data) {
+                res.send("There is an error, try again");
+            } else {
+                res.json(data);
+            }
+        };
+});
+
 app.post("/api/users", (req, res) => {
     console.log("post request working: ", req.body);
     const newUser = new User({
