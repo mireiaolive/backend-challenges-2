@@ -36,14 +36,116 @@ app.get("/", (req, res) => {
 });
 
 app.get("/api/users", (req, res) => {
-    User.find(),
-        (err, data) => {
-            if (!data) {
-                res.send("There is an error, try again");
-            } else {
-                res.json(data);
+    User.find({}, (err, data) => {
+        if (!data) {
+            res.send("There is an error, try again: ", err);
+        } else {
+            res.json(data);
+        }
+    });
+});
+
+app.get("/api/users/:_id/logs", (req, res) => {
+    const id = req.body["_id"] || req.params._id;
+    var fromDate = req.query.from;
+    var toDate = req.query.to;
+    var limit = req.query.limit;
+
+    if (fromDate) {
+        fromDate = new Date(fromDate);
+        if (fromDate == "Invalid Date") {
+            res.json("Invalid Date Entered");
+            return;
+        }
+    }
+
+    if (toDate) {
+        toDate = new Date(toDate);
+        if (toDate == "Invalid Date") {
+            res.json("Invalid Date Entered");
+            return;
+        }
+    }
+
+    if (limit) {
+        limit = new Number(limit);
+        if (isNaN(limit)) {
+            res.json("Invalid Limit Entered");
+            return;
+        }
+    }
+
+    User.findOne({ _id: id }, (error, data) => {
+        if (error) {
+            res.json("Invalid UserID");
+            return console.log(error);
+        }
+        if (!data) {
+            res.json("Invalid UserID");
+        } else {
+            const usernameFound = data.username;
+            var objToReturn = { _id: id, username: usernameFound };
+
+            var findFilter = { username: usernameFound };
+            var dateFilter = {};
+
+            if (fromDate) {
+                objToReturn["from"] = fromDate.toDateString();
+                dateFilter["$gte"] = fromDate;
+                if (toDate) {
+                    objToReturn["to"] = toDate.toDateString();
+                    dateFilter["$lt"] = toDate;
+                } else {
+                    dateFilter["$lt"] = Date.now();
+                }
             }
-        };
+
+            if (toDate) {
+                objToReturn["to"] = toDate.toDateString();
+                dateFilter["$lt"] = toDate;
+                dateFilter["$gte"] = new Date("1960-01-01");
+            }
+
+            if (toDate || fromDate) {
+                findFilter.date = dateFilter;
+            }
+
+            Exercise.count(findFilter, (error, data) => {
+                if (error) {
+                    res.json("Invalid Date Entered");
+                    return console.log(error);
+                }
+
+                var count = data;
+                if (limit && limit < count) {
+                    count = limit;
+                }
+                objToReturn["count"] = count;
+
+                Exercise.find(findFilter, (error, data) => {
+                    if (error) return console.log(error);
+
+                    var newArray = [];
+                    var newObject = {};
+                    var count = 0;
+
+                    data.forEach(function (val) {
+                        count += 1;
+                        if (!limit || count <= limit) {
+                            newObject = {};
+                            newObject.description = val.description;
+                            newObject.duration = val.duration;
+                            newObject.date = val.date.toDateString();
+                            console.log(newObject);
+                            newArray.push(newObject);
+                        }
+                    });
+                    objToReturn["log"] = newArray;
+                    res.json(objToReturn);
+                });
+            });
+        }
+    });
 });
 
 app.post("/api/users", (req, res) => {
